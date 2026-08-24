@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kart doğrulayıcı</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card-form {
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 380px;
+    }
+    .card-form h2 {
+      margin-bottom: 20px;
+      font-size: 20px;
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+      color: #666;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 15px;
+    }
+    .card-type-badge {
+      font-size: 12px;
+      font-weight: bold;
+      color: #007bff;
+      margin-top: 5px;
+      display: block;
+      min-height: 18px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+      text-align: center;
+    }
+    .result.success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .result.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card-form">
+  <h2>Kart Bilgileri</h2>
+  <form id="paymentForm">
+    <div class="form-group">
+      <label for="cardNumber">Kart Numarası</label>
+      <input type="text" id="cardNumber" placeholder="0000 0000 0000 0000" maxlength="19">
+      <span id="cardTypeDisplay" class="card-type-badge"></span>
+    </div>
+
+    <div class="row">
+      <div class="form-group" style="flex: 1;">
+        <label for="expiry">SKT (AA/YY)</label>
+        <input type="text" id="expiry" placeholder="MM/YY" maxlength="5">
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label for="cvc">CVC</label>
+        <input type="text" id="cvc" placeholder="123" maxlength="4">
+      </div>
+    </div>
+
+    <button type="submit">Kartı Doğrula</button>
+  </form>
+
+  <div id="resultMessage" class="result"></div>
+</div>
+
+<script>
+  // Kart Türünü Tespit Etme (Tüm Sağlayıcılar)
+  function getCardType(cardNumber) {
+    const digits = cardNumber.replace(/\D/g, '');
+    if (!digits) return '';
+
+    const cardPatterns = [
+      { type: 'Troy', pattern: /^(6500|9792)/ },
+      { type: 'Visa', pattern: /^4/ },
+      { type: 'Mastercard', pattern: /^(5[1-5]|2[2-7])/ },
+      { type: 'American Express', pattern: /^3[47]/ },
+      { type: 'Discover', pattern: /^(6011|65|64[4-9]|622[1-9])/ },
+      { type: 'Diners Club', pattern: /^(30[0-5]|36|38|39)/ },
+      { type: 'JCB', pattern: /^(35[2-8])/ },
+      { type: 'UnionPay', pattern: /^(62|81)/ },
+      { type: 'Maestro', pattern: /^(5018|5020|5038|5893|6304|6759|6761|6762|6763)/ },
+      { type: 'Mir', pattern: /^220[0-4]/ },
+      { type: 'Aura', pattern: /^5078/ },
+      { type: 'Hipercard', pattern: /^(606282|3841)/ }
+    ];
+
+    for (const card of cardPatterns) {
+      if (card.pattern.test(digits)) {
+        return card.type;
+      }
+    }
+
+    return 'Bilinmeyen Kart Ağı';
+  }
+
+  // Luhn Algoritması
+  function luhnCheck(cardNumber) {
+    const digits = cardNumber.replace(/\D/g, '');
+    if (digits.length < 13 || digits.length > 19) return false;
+
+    let sum = 0;
+    let shouldDouble = false;
+
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let digit = parseInt(digits.charAt(i), 10);
+
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+
+    return (sum % 10) === 0;
+  }
+
+  // Son Kullanma Tarihi Kontrolü
+  function expiryCheck(expiryStr) {
+    const parts = expiryStr.split('/');
+    if (parts.length !== 2) return false;
+
+    const month = parseInt(parts[0], 10);
+    let year = parseInt(parts[1], 10);
+
+    if (isNaN(month) || isNaN(year) || month < 1 || month > 12) return false;
+
+    if (year < 100) year += 2000;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    if (year < currentYear) return false;
+    if (year === currentYear && month < currentMonth) return false;
+
+    return true;
+  }
+
+  // Dinamik Kart Numarası Formatlama & Kart Türü Bilgisi
+  document.getElementById('cardNumber').addEventListener('input', function (e) {
+    let value = e.target.value.replace(/\D/g, '');
+    const cardType = getCardType(value);
+    
+    document.getElementById('cardTypeDisplay').innerText = cardType ? `Kart Ağı: ${cardType}` : '';
+
+    // Amex ise 4-6-5, diğerlerinde 4'lü gruplar
+    if (cardType === 'American Express') {
+      value = value.replace(/^(\d{4})(\d{0,6})(\d{0,5})/, function(_, p1, p2, p3) {
+        let result = p1;
+        if (p2) result += ' ' + p2;
+        if (p3) result += ' ' + p3;
+        return result;
+      });
+    } else {
+      value = value.replace(/(.{4})/g, '$1 ').trim();
+    }
+
+    e.target.value = value;
+  });
+
+  // Otomatik Tarih Formatlama (AA/YY)
+  document.getElementById('expiry').addEventListener('input', function (e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+      value = value.substring(0, 2) + '/' + value.substring(2, 4);
+    }
+    e.target.value = value;
+  });
+
+  // Form Gönderim Kontrolü
+  document.getElementById('paymentForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const cardNumber = document.getElementById('cardNumber').value;
+    const expiry = document.getElementById('expiry').value;
+    const cvc = document.getElementById('cvc').value;
+    const resultDiv = document.getElementById('resultMessage');
+
+    const isCardValid = luhnCheck(cardNumber);
+    const isExpiryValid = expiryCheck(expiry);
+    const isCvcValid = /^\d{3,4}$/.test(cvc);
+    const cardType = getCardType(cardNumber);
+
+    resultDiv.style.display = 'block';
+
+    if (!isCardValid) {
+      resultDiv.className = 'result error';
+      resultDiv.innerText = 'Geçersiz kart numarası!';
+    } else if (!isExpiryValid) {
+      resultDiv.className = 'result error';
+      resultDiv.innerText = 'Son kullanma tarihi geçersiz veya süresi dolmuş!';
+    } else if (!isCvcValid) {
+      resultDiv.className = 'result error';
+      resultDiv.innerText = 'CVC kodu 3 veya 4 haneli olmalıdır!';
+    } else {
+      resultDiv.className = 'result success';
+      resultDiv.innerText = `Kart bilgileri geçerli! - kartınızın türü (${cardType})`;
+    }
+  });
+</script>
+
+</body>
+        </html>
+        
