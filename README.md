@@ -2,7 +2,7 @@
 
 ![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-blue.svg)
 ![Status: Live](https://img.shields.io/badge/status-live-brightgreen).
-![tech](https://img.shields.io/badge/tech-VanillaJS%20%7C%20CSS3%20%7C%20HTML5-orange
+![tech](https://img.shields.io/badge/tech-VanillaJS%20%7C%20CSS3%20%7C%20HTML5-orange).
 
 Dünyadaki tüm standart ödeme kartlarının (Visa, Mastercard, TROY, Amex vb.) kart numarası, son kullanma tarihi (SKT) ve CVC/CVV güvenlik kodlarını format ve algoritma seviyesinde doğrulayan açık kaynaklı web uygulaması.
 
